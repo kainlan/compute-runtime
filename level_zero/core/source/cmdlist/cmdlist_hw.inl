@@ -3177,7 +3177,9 @@ void CommandListCoreFamily<gfxCoreFamily>::appendWaitOnInOrderDependency(std::sh
 
     UNRECOVERABLE_IF(waitValue > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) && !isQwordInOrderCounter());
 
-    auto deviceAllocForResidency = this->getDeviceCounterAllocForResidency(inOrderExecInfo->getDeviceCounterAllocation());
+    auto deviceAllocForResidency = this->getDeviceCounterAllocForResidency(
+        inOrderExecInfo->getDeviceCounterAllocation(device->getRootDeviceIndex()));
+    UNRECOVERABLE_IF(!deviceAllocForResidency);
     if (!skipAddingWaitEventsToResidency) {
         commandContainer.addToResidencyContainer(deviceAllocForResidency);
     }

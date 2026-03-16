@@ -59,6 +59,7 @@ class InOrderExecInfo : public NEO::NonCopyableClass {
     InOrderExecInfo(TagNodeBase *deviceCounterNode, TagNodeBase *hostCounterNode, NEO::Device &device, uint32_t partitionCount, bool regularCmdList, bool atomicDeviceSignalling);
 
     NEO::GraphicsAllocation *getDeviceCounterAllocation() const;
+    NEO::GraphicsAllocation *getDeviceCounterAllocation(uint32_t forRootDeviceIndex) const;
     NEO::GraphicsAllocation *getHostCounterAllocation() const;
     uint64_t *getBaseHostAddress() const { return hostAddress; }
     uint64_t getBaseDeviceAddress() const { return deviceAddress; }

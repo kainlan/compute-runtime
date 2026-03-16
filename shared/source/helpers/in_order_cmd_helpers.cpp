@@ -149,6 +149,21 @@ NEO::GraphicsAllocation *InOrderExecInfo::getDeviceCounterAllocation() const {
     return deviceCounterNode ? deviceCounterNode->getBaseGraphicsAllocation()->getGraphicsAllocation(rootDeviceIndex) : nullptr;
 }
 
+NEO::GraphicsAllocation *InOrderExecInfo::getDeviceCounterAllocation(uint32_t forRootDeviceIndex) const {
+    if (externalDeviceAllocation) {
+        return externalDeviceAllocation;
+    }
+    if (!deviceCounterNode) {
+        return nullptr;
+    }
+    auto *alloc = deviceCounterNode->getBaseGraphicsAllocation()->getGraphicsAllocation(forRootDeviceIndex);
+    if (alloc) {
+        return alloc;
+    }
+    // Fall back to the creating device's allocation
+    return deviceCounterNode->getBaseGraphicsAllocation()->getGraphicsAllocation(rootDeviceIndex);
+}
+
 NEO::GraphicsAllocation *InOrderExecInfo::getHostCounterAllocation() const {
     if (externalHostAllocation) {
         return externalHostAllocation;
