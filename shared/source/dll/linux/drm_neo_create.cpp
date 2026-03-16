@@ -74,7 +74,7 @@ Drm *Drm::create(std::unique_ptr<HwDeviceIdDrm> &&hwDeviceId, RootDeviceEnvironm
             GemContextCreateExt probeCtx{};
             auto probeResult = drm->getIoctlHelper()->ioctl(DrmIoctl::gemContextCreateExt, &probeCtx);
             if (probeResult != 0) {
-                PRINT_STRING(debugManager.flags.PrintDebugMessages.get(), stderr,
+                PRINT_DEBUG_STRING(debugManager.flags.PrintDebugMessages.get(), stderr,
                              "WARNING: Device %04x appears wedged (GEM_CONTEXT_CREATE_EXT failed with errno=%d). "
                              "Skipping this device.\n",
                              usDeviceID, drm->getErrno());

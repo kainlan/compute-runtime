@@ -8,6 +8,7 @@
 #include "level_zero/core/source/device/device.h"
 
 #include "shared/source/device/device.h"
+#include "shared/source/execution_environment/execution_environment.h"
 #include "shared/source/helpers/aligned_memory.h"
 #include "shared/source/helpers/fill_pattern_tag_node.h"
 #include "shared/source/helpers/gfx_core_helper.h"
@@ -34,7 +35,26 @@ NEO::TagAllocatorBase *getInOrderCounterAllocator(std::unique_ptr<NEO::TagAlloca
         std::unique_lock<std::mutex> lock(inOrderAllocatorMutex);
 
         if (!allocator.get()) {
-            RootDeviceIndicesContainer rootDeviceIndices = {neoDevice.getRootDeviceIndex()};
+            RootDeviceIndicesContainer rootDeviceIndices;
+
+            auto *execEnv = neoDevice.getExecutionEnvironment();
+            auto numRootDevices = static_cast<uint32_t>(execEnv->rootDeviceEnvironments.size());
+
+            if (numRootDevices > 1) {
+                // Multi-device: include all root device indices so the counter
+                // allocation is in host-visible system memory accessible from
+                // all GPUs via PCIe. TagAllocator::populateFreeTags uses
+                // createMultiGraphicsAllocationInSystemMemoryPool when
+                // rootDeviceIndices.size() > 1. This enables native GPU-side
+                // MI_SEMAPHORE_WAIT for cross-device depends_on() without
+                // host thread involvement. Same pattern as EventPool
+                // (event.cpp:98-100) which forces system memory for multi-device.
+                for (uint32_t i = 0; i < numRootDevices; i++) {
+                    rootDeviceIndices.pushUnique(i);
+                }
+            } else {
+                rootDeviceIndices.pushUnique(neoDevice.getRootDeviceIndex());
+            }
 
             const size_t maxPartitionCount = neoDevice.getDeviceBitfield().count();
 
