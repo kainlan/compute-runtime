@@ -15,6 +15,7 @@
 #include "shared/source/os_interface/device_factory.h"
 #include "shared/source/os_interface/linux/drm_memory_manager.h"
 #include "shared/source/os_interface/linux/drm_neo.h"
+#include "shared/source/os_interface/linux/ioctl_helper.h"
 #include "shared/source/unified_memory/usm_memory_support.h"
 
 #include <array>
@@ -38,6 +39,29 @@ Drm *Drm::create(std::unique_ptr<HwDeviceIdDrm> &&hwDeviceId, RootDeviceEnvironm
 
     if (drm->setupHardwareInfo(usDeviceID, true)) {
         return nullptr;
+    }
+
+    // Health check: verify the device is functional by probing GEM context creation.
+    // On i915, a wedged GPU will return -EIO for GEM_CONTEXT_CREATE_EXT even though
+    // earlier metadata queries (GETPARAM, topology) may have succeeded. Without this
+    // check, a wedged device passes Drm::create and blocks discovery of healthy devices.
+    {
+        auto drmVersion = Drm::getDrmVersion(drm->getFileDescriptor());
+        if ("i915" == drmVersion) {
+            GemContextCreateExt probeCtx{};
+            auto probeResult = drm->getIoctlHelper()->ioctl(DrmIoctl::gemContextCreateExt, &probeCtx);
+            if (probeResult != 0) {
+                PRINT_STRING(debugManager.flags.PrintDebugMessages.get(), stderr,
+                             "WARNING: Device %04x appears wedged (GEM_CONTEXT_CREATE_EXT failed with errno=%d). "
+                             "Skipping this device.\n",
+                             usDeviceID, drm->getErrno());
+                return nullptr;
+            }
+            // Probe succeeded — destroy the temporary context and continue
+            GemContextDestroy destroyCtx{};
+            destroyCtx.contextId = probeCtx.contextId;
+            drm->getIoctlHelper()->ioctl(DrmIoctl::gemContextDestroy, &destroyCtx);
+        }
     }
 
     drm->setupDrmFabric();
