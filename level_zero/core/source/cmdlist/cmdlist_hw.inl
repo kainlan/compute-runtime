@@ -3522,7 +3522,21 @@ ze_result_t CommandListCoreFamily<gfxCoreFamily>::appendWaitOnEvents(uint32_t nu
 
         if (event->isCounterBased() && (this->heaplessModeEnabled || !event->hasInOrderTimestampNode())) {
             auto &inOrderExecHelper = event->getInOrderExecEventHelper();
-            CommandListCoreFamily<gfxCoreFamily>::appendWaitOnInOrderDependency(inOrderExecHelper.getDeviceCounterAllocation(), inOrderExecHelper.getBaseDeviceAddress(), inOrderExecHelper.getEventData()->devicePartitions, outWaitCmds,
+            auto *counterAllocation = inOrderExecHelper.getDeviceCounterAllocation();
+            auto counterBaseAddress = inOrderExecHelper.getBaseDeviceAddress();
+            auto counterPartitions = inOrderExecHelper.getEventData()->devicePartitions;
+
+            if (counterAllocation && counterAllocation->getRootDeviceIndex() != device->getRootDeviceIndex() &&
+                inOrderExecHelper.isHostStorageDuplicated()) {
+                auto *hostCounterAllocation = inOrderExecHelper.getHostCounterAllocation(device->getRootDeviceIndex());
+                if (hostCounterAllocation) {
+                    counterAllocation = hostCounterAllocation;
+                    counterBaseAddress = inOrderExecHelper.getBaseHostGpuAddress(device->getRootDeviceIndex());
+                    counterPartitions = inOrderExecHelper.getEventData()->hostPartitions;
+                }
+            }
+
+            CommandListCoreFamily<gfxCoreFamily>::appendWaitOnInOrderDependency(counterAllocation, counterBaseAddress, counterPartitions, outWaitCmds,
                                                                                 event->getInOrderExecBaseSignalValue(), event->getInOrderAllocationOffset(),
                                                                                 relaxedOrderingAllowed, false, skipAddingWaitEventsToResidency,
                                                                                 isCbEventBoundToCmdList(event), dualStreamCopyOffload);

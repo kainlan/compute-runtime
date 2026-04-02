@@ -69,6 +69,8 @@ class InOrderExecInfo : public NEO::NonCopyableClass {
     uint64_t *getBaseHostAddress() const { return hostAddress; }
     uint64_t getBaseDeviceAddress() const { return deviceAddress; }
     uint64_t getBaseHostGpuAddress() const;
+    uint32_t getRootDeviceIndex() const { return rootDeviceIndex; }
+    NEO::TagNodeBase *getHostCounterNode() const { return hostCounterNode; }
 
     uint64_t getDeviceNodeGpuAddress() const;
     uint64_t getHostNodeGpuAddress() const;
@@ -243,6 +245,22 @@ class InOrderExecEventHelper : public NonCopyableClass {
 
     NEO::GraphicsAllocation *getDeviceCounterAllocation() const { return deviceCounterAllocation; }
     NEO::GraphicsAllocation *getHostCounterAllocation() const { return hostCounterAllocation; }
+    NEO::GraphicsAllocation *getHostCounterAllocation(uint32_t rootDeviceIndex) const {
+        if (inOrderExecInfo && inOrderExecInfo->getHostCounterNode()) {
+            return inOrderExecInfo->getHostCounterNode()->getBaseGraphicsAllocation()->getGraphicsAllocation(rootDeviceIndex);
+        }
+        return hostCounterAllocation;
+    }
+    uint64_t getBaseHostGpuAddress(uint32_t rootDeviceIndex) const {
+        auto *rootAlloc = getHostCounterAllocation(rootDeviceIndex);
+        if (!rootAlloc) {
+            return getBaseHostGpuAddress();
+        }
+        if (hostCounterAllocation && baseHostGpuAddress >= hostCounterAllocation->getGpuAddress()) {
+            return rootAlloc->getGpuAddress() + (baseHostGpuAddress - hostCounterAllocation->getGpuAddress());
+        }
+        return rootAlloc->getGpuAddress();
+    }
     bool isHostStorageDuplicated() const { return hostStorageDuplicated; }
     bool isFromExternalMemory() const { return fromExternalMemory; }
 
