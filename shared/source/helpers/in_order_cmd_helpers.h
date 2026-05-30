@@ -245,22 +245,8 @@ class InOrderExecEventHelper : public NonCopyableClass {
 
     NEO::GraphicsAllocation *getDeviceCounterAllocation() const { return deviceCounterAllocation; }
     NEO::GraphicsAllocation *getHostCounterAllocation() const { return hostCounterAllocation; }
-    NEO::GraphicsAllocation *getHostCounterAllocation(uint32_t rootDeviceIndex) const {
-        if (inOrderExecInfo && inOrderExecInfo->getHostCounterNode()) {
-            return inOrderExecInfo->getHostCounterNode()->getBaseGraphicsAllocation()->getGraphicsAllocation(rootDeviceIndex);
-        }
-        return hostCounterAllocation;
-    }
-    uint64_t getBaseHostGpuAddress(uint32_t rootDeviceIndex) const {
-        auto *rootAlloc = getHostCounterAllocation(rootDeviceIndex);
-        if (!rootAlloc) {
-            return getBaseHostGpuAddress();
-        }
-        if (hostCounterAllocation && baseHostGpuAddress >= hostCounterAllocation->getGpuAddress()) {
-            return rootAlloc->getGpuAddress() + (baseHostGpuAddress - hostCounterAllocation->getGpuAddress());
-        }
-        return rootAlloc->getGpuAddress();
-    }
+    NEO::GraphicsAllocation *getHostCounterAllocation(uint32_t rootDeviceIndex) const;
+    uint64_t getBaseHostGpuAddress(uint32_t rootDeviceIndex) const;
     bool isHostStorageDuplicated() const { return hostStorageDuplicated; }
     bool isFromExternalMemory() const { return fromExternalMemory; }
 

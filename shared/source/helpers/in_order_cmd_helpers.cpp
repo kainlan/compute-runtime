@@ -167,6 +167,24 @@ uint64_t InOrderExecInfo::getBaseHostGpuAddress() const {
     return hostCounterNode ? hostCounterNode->getGpuAddress() : 0;
 }
 
+NEO::GraphicsAllocation *InOrderExecEventHelper::getHostCounterAllocation(uint32_t rootDeviceIndex) const {
+    if (inOrderExecInfo && inOrderExecInfo->getHostCounterNode()) {
+        return inOrderExecInfo->getHostCounterNode()->getBaseGraphicsAllocation()->getGraphicsAllocation(rootDeviceIndex);
+    }
+    return hostCounterAllocation;
+}
+
+uint64_t InOrderExecEventHelper::getBaseHostGpuAddress(uint32_t rootDeviceIndex) const {
+    auto *rootAlloc = getHostCounterAllocation(rootDeviceIndex);
+    if (!rootAlloc) {
+        return getBaseHostGpuAddress();
+    }
+    if (hostCounterAllocation && baseHostGpuAddress >= hostCounterAllocation->getGpuAddress()) {
+        return rootAlloc->getGpuAddress() + (baseHostGpuAddress - hostCounterAllocation->getGpuAddress());
+    }
+    return rootAlloc->getGpuAddress();
+}
+
 void InOrderExecInfo::pushTempTimestampNode(TagNodeBase *node, uint64_t value, uint32_t allocationOffset) {
     std::unique_lock<std::mutex> lock(mutex);
 
