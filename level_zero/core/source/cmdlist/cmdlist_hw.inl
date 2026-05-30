@@ -3525,22 +3525,36 @@ ze_result_t CommandListCoreFamily<gfxCoreFamily>::appendWaitOnEvents(uint32_t nu
             auto *counterAllocation = inOrderExecHelper.getDeviceCounterAllocation();
             auto counterBaseAddress = inOrderExecHelper.getBaseDeviceAddress();
             auto counterPartitions = inOrderExecHelper.getEventData()->devicePartitions;
+            bool canUseCounterWait = true;
 
-            if (counterAllocation && counterAllocation->getRootDeviceIndex() != device->getRootDeviceIndex() &&
-                inOrderExecHelper.isHostStorageDuplicated()) {
-                auto *hostCounterAllocation = inOrderExecHelper.getHostCounterAllocation(device->getRootDeviceIndex());
-                if (hostCounterAllocation) {
-                    counterAllocation = hostCounterAllocation;
-                    counterBaseAddress = inOrderExecHelper.getBaseHostGpuAddress(device->getRootDeviceIndex());
-                    counterPartitions = inOrderExecHelper.getEventData()->hostPartitions;
+            if (counterAllocation && counterAllocation->getRootDeviceIndex() != device->getRootDeviceIndex()) {
+                if (inOrderExecHelper.isHostStorageDuplicated()) {
+                    auto *hostCounterAllocation = inOrderExecHelper.getHostCounterAllocation(device->getRootDeviceIndex());
+                    if (hostCounterAllocation) {
+                        counterAllocation = hostCounterAllocation;
+                        counterBaseAddress = inOrderExecHelper.getBaseHostGpuAddress(device->getRootDeviceIndex());
+                        counterPartitions = inOrderExecHelper.getEventData()->hostPartitions;
+                    } else {
+                        canUseCounterWait = false;
+                    }
+                } else {
+                    canUseCounterWait = false;
                 }
             }
 
-            CommandListCoreFamily<gfxCoreFamily>::appendWaitOnInOrderDependency(counterAllocation, counterBaseAddress, counterPartitions, outWaitCmds,
-                                                                                event->getInOrderExecBaseSignalValue(), event->getInOrderAllocationOffset(),
-                                                                                relaxedOrderingAllowed, false, skipAddingWaitEventsToResidency,
-                                                                                isCbEventBoundToCmdList(event), dualStreamCopyOffload);
+            if (canUseCounterWait) {
+                CommandListCoreFamily<gfxCoreFamily>::appendWaitOnInOrderDependency(counterAllocation, counterBaseAddress, counterPartitions, outWaitCmds,
+                                                                                    event->getInOrderExecBaseSignalValue(), event->getInOrderAllocationOffset(),
+                                                                                    relaxedOrderingAllowed, false, skipAddingWaitEventsToResidency,
+                                                                                    isCbEventBoundToCmdList(event), dualStreamCopyOffload);
 
+                continue;
+            }
+
+            auto syncResult = event->hostSynchronize(std::numeric_limits<uint64_t>::max());
+            if (syncResult != ZE_RESULT_SUCCESS) {
+                return syncResult;
+            }
             continue;
         }
 
